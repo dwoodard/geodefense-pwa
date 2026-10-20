@@ -91,19 +91,28 @@ try {
     const bossStayed=enemies[6].d===portalPair.in.d+2
     const limitRespected=!enemies[5].teleported
     const cd=portalPair.cd
+    // The sixth enemy reaches IN while it is recharging; it must pass through.
+    portalUpdate(1)
+    const passesDuringReset=!enemies[5].teleported&&enemies[5].d===portalPair.in.d+2&&portalPair.cd===7
     portalPair.cd=0
     portalUpdate(0)
     const once=enemies.slice(0,5).every(e=>e.teleported&&e.d===portalPair.out.d+7)
     const postSecond=enemies[5].teleported
+    // Move the first five back to IN after recharge: none may teleport twice.
+    for(const enemy of enemies.slice(0,5))enemy.d=portalPair.in.d+2
+    portalPair.cd=0
+    portalUpdate(0)
+    const noRepeat=enemies.slice(0,5).every(e=>e.teleported&&e.d===portalPair.in.d+2)
+    portalPair.cd=4 // Take the visual snapshot during the cooldown.
     const written=[]
     const original=ctx.fillText
     ctx.fillText=function(label,...args){written.push(String(label));return original.call(this,label,...args)}
     draw()
     ctx.fillText=original
     const labelsHidden=!written.includes('IN')&&!written.includes('OUT')
-    return{outOK,inOK,firstWasIn,cost,transported,bossStayed,limitRespected,cd,once,postSecond,labelsHidden,previousOut,previousIn}
+    return{outOK,inOK,firstWasIn,cost,transported,bossStayed,limitRespected,cd,once,postSecond,passesDuringReset,noRepeat,labelsHidden,previousOut,previousIn}
   })
-  if (!mechanics.outOK || !mechanics.inOK || !mechanics.firstWasIn || mechanics.cost!==250 || mechanics.transported!==5 || !mechanics.labelsHidden || !mechanics.bossStayed || !mechanics.limitRespected || mechanics.cd!==8 || !mechanics.once || !mechanics.postSecond) throw new Error('Teleport game balance regression: '+JSON.stringify(mechanics))
+  if (!mechanics.outOK || !mechanics.inOK || !mechanics.firstWasIn || mechanics.cost!==250 || mechanics.transported!==5 || !mechanics.labelsHidden || !mechanics.bossStayed || !mechanics.limitRespected || mechanics.cd!==8 || !mechanics.passesDuringReset || !mechanics.noRepeat || !mechanics.once || !mechanics.postSecond) throw new Error('Teleport game balance regression: '+JSON.stringify(mechanics))
   await portalPage.locator('canvas').screenshot({ path: join(output, 'teleport-pair.png') })
   const bar=await portalPage.evaluate(() => {
     powerMenu=false
@@ -121,7 +130,7 @@ try {
   if (!bar.opened||!bar.selected||!bar.sold||!bar.refunded)throw new Error('Portal toolbar / Powers / sell regression: '+JSON.stringify(bar))
   if (portalErrors.length) throw new Error('Teleport runtime errors: '+portalErrors.join('; '))
   await portalContext.close()
-  console.log('PASS: IN first, OUT second, 5 target cap, no persistent labels, boss immunity, once-only, cooldown, Powers button, sell/refund')
+  console.log('PASS: IN first, OUT second, 5 target cap, boss immunity, cooling portal lets enemies through, once-only even after reset, Powers button')
 
   // Exercise the exact sandboxed wrapper used on Pages, not only the root game.
   const files = new Map()
