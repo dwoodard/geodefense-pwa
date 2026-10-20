@@ -117,6 +117,29 @@ try {
   await portalContext.close()
   console.log('PASS: IN first, OUT second, unlimited simultaneous teleports, no cooldown, once-only per enemy, boss immunity, Powers button')
 
+  // Power-up grid: tap a tile, adjust fixed units, buy without changing the original effect.
+  const gridContext=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'})
+  const gridPage=await gridContext.newPage()
+  const gridErrors=[]
+  gridPage.on('pageerror',e=>gridErrors.push(e.message))
+  await gridPage.goto('http://127.0.0.1:'+port+'/',{waitUntil:'load'})
+  const gridResult=await gridPage.evaluate(()=>{
+    reset();screen='game';money=2500;powerMenu=true;draw()
+    const tap=(x,y)=>onDown({preventDefault(){},pointerId:500,pointerType:'mouse',clientX:X+x*S,clientY:Y+y*S})
+    tap(60,265);const first=powerSelection.laser
+    tap(60,265);const second=powerSelection.laser
+    tap(253,527);const minus=powerSelection.laser
+    tap(345,527);const plus=powerSelection.laser
+    const cost=powerTotal()
+    tap(285,583)
+    return{first,second,minus,plus,cost,owned:powerTimers.laser,money,closed:!powerMenu}
+  })
+  if(gridResult.first!==5||gridResult.second!==10||gridResult.minus!==5||gridResult.plus!==10||gridResult.cost!==200||gridResult.owned!==10||gridResult.money!==2300||!gridResult.closed)throw new Error('Grid control/purchase regression: '+JSON.stringify(gridResult))
+  if(gridErrors.length)throw new Error('Grid runtime errors: '+gridErrors.join('; '))
+  await gridPage.locator('canvas').screenshot({path:join(output,'power-grid.png')})
+  await gridContext.close()
+  console.log('PASS: four-column power-up grid, tap to add, +/- adjust, fixed units, purchase')
+
   // Exercise the exact sandboxed wrapper used on Pages, not only the root game.
   const files = new Map()
   for (const file of ['index.html', 'sw.js', 'icon.svg', 'manifest.webmanifest']) {
