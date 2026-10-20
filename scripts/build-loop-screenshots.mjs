@@ -77,42 +77,27 @@ try {
   portalPage.on('pageerror', error => portalErrors.push(error.message))
   await portalPage.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' })
   const mechanics = await portalPage.evaluate(() => {
-    reset();screen='game';phase='wave';wave=8
-    const startMoney=money
-    const inOK=portalPlace(280,400)
+    reset(); screen='game';phase='wave';wave=8
+    const first=portalPlace(280,400)
     const firstWasIn=!!portalPair.in&&!portalPair.out&&portalNext()==='out'
-    const outOK=portalPlace(55,170)
-    const cost=startMoney-money
-    const previousOut={...portalPair.out},previousIn={...portalPair.in}
-    enemies = [1,2,3,4,5,6].map(id=>({id,d:portalPair.in.d+2,routeId:activeRouteId,hp:100,max:100,kind:'normal',speed:0,reward:0,wave:8}))
-    enemies.push({id:7,d:portalPair.in.d+2,routeId:activeRouteId,hp:100,max:100,kind:'boss',speed:0,reward:0,wave:8})
+    const second=portalPlace(55,170)
+    const total=18
+    enemies=Array.from({length:total},(_,i)=>({id:i+1,d:portalPair.in.d+2,routeId:activeRouteId,hp:100,max:100,kind:i===total-1?'boss':'normal',speed:0,reward:0,wave:8}))
     portalUpdate(0)
-    const transported=enemies.filter(e=>e.teleported).length
-    const bossStayed=enemies[6].d===portalPair.in.d+2
-    const limitRespected=!enemies[5].teleported
-    const cd=portalPair.cd
-    // The sixth enemy reaches IN while it is recharging; it must pass through.
-    portalUpdate(1)
-    const passesDuringReset=!enemies[5].teleported&&enemies[5].d===portalPair.in.d+2&&portalPair.cd===7
-    portalPair.cd=0
+    const teleported=enemies.filter(e=>e.teleported).length
+    const bossStayed=enemies[total-1].d===portalPair.in.d+2
+    const noCooldown=portalPair.cd===0
+    for(const e of enemies.slice(0,total-1))e.d=portalPair.in.d+2
     portalUpdate(0)
-    const once=enemies.slice(0,5).every(e=>e.teleported&&e.d===portalPair.out.d+7)
-    const postSecond=enemies[5].teleported
-    // Move the first five back to IN after recharge: none may teleport twice.
-    for(const enemy of enemies.slice(0,5))enemy.d=portalPair.in.d+2
-    portalPair.cd=0
-    portalUpdate(0)
-    const noRepeat=enemies.slice(0,5).every(e=>e.teleported&&e.d===portalPair.in.d+2)
-    portalPair.cd=4 // Take the visual snapshot during the cooldown.
+    const noRepeat=enemies.slice(0,total-1).every(e=>e.d===portalPair.in.d+2)
     const written=[]
-    const original=ctx.fillText
-    ctx.fillText=function(label,...args){written.push(String(label));return original.call(this,label,...args)}
+    const old=ctx.fillText
+    ctx.fillText=function(label,...args){written.push(String(label));return old.call(this,label,...args)}
     draw()
-    ctx.fillText=original
-    const labelsHidden=!written.includes('IN')&&!written.includes('OUT')
-    return{outOK,inOK,firstWasIn,cost,transported,bossStayed,limitRespected,cd,once,postSecond,passesDuringReset,noRepeat,labelsHidden,previousOut,previousIn}
+    ctx.fillText=old
+    return{first,second,firstWasIn,teleported,bossStayed,noCooldown,noRepeat,labelsHidden:!written.includes('IN')&&!written.includes('OUT'),money}
   })
-  if (!mechanics.outOK || !mechanics.inOK || !mechanics.firstWasIn || mechanics.cost!==250 || mechanics.transported!==5 || !mechanics.labelsHidden || !mechanics.bossStayed || !mechanics.limitRespected || mechanics.cd!==8 || !mechanics.passesDuringReset || !mechanics.noRepeat || !mechanics.once || !mechanics.postSecond) throw new Error('Teleport game balance regression: '+JSON.stringify(mechanics))
+  if(!mechanics.first||!mechanics.second||!mechanics.firstWasIn||mechanics.teleported!==17||!mechanics.bossStayed||!mechanics.noCooldown||!mechanics.noRepeat||!mechanics.labelsHidden||mechanics.money!==100)throw new Error('Unlimited teleport regression: '+JSON.stringify(mechanics))
   await portalPage.locator('canvas').screenshot({ path: join(output, 'teleport-pair.png') })
   const bar=await portalPage.evaluate(() => {
     powerMenu=false
@@ -130,7 +115,7 @@ try {
   if (!bar.opened||!bar.selected||!bar.sold||!bar.refunded)throw new Error('Portal toolbar / Powers / sell regression: '+JSON.stringify(bar))
   if (portalErrors.length) throw new Error('Teleport runtime errors: '+portalErrors.join('; '))
   await portalContext.close()
-  console.log('PASS: IN first, OUT second, 5 target cap, boss immunity, cooling portal lets enemies through, once-only even after reset, Powers button')
+  console.log('PASS: IN first, OUT second, unlimited simultaneous teleports, no cooldown, once-only per enemy, boss immunity, Powers button')
 
   // Exercise the exact sandboxed wrapper used on Pages, not only the root game.
   const files = new Map()
