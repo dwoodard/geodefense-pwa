@@ -30,6 +30,22 @@ ChatGPT is the control surface; GitHub holds durable state; GitHub Actions runs 
 6. ChatGPT brings the preview URL, screenshots, CI results, and short decision points back to the conversation.
 7. Merge is an explicit `ship` step. Closing a PR removes its preview on the next successful Pages deployment.
 
+## In-chat reporting contract (required)
+
+The chat is the primary review interface. **Never require the user to open GitHub to understand results.** Always include optional links to the underlying PR, Actions run, artifacts, and playable preview for deeper inspection, but give the useful information and visuals inline first.
+
+After delegating work to GitHub Actions, ChatGPT must:
+
+1. Inspect the run's actual status and conclusion; do not confuse a workflow being queued, in progress, or green with a deployed preview.
+2. Fetch job/step results and useful logs. Summarize what passed, what failed, and meaningful warnings; distinguish tested behavior from untested behavior.
+3. Retrieve screenshot or video artifacts when available; show the actual portrait/landscape images inside the chat whenever technically supported. Don't substitute a link to a ZIP for visual review.
+4. Inspect the resulting visuals and code, call out layout problems, incomplete interactions, limitations and regression risks, even when CI is green.
+5. If a playable preview was verified, give its optional URL and describe what's different from production. If not yet published, state that explicitly.
+6. Return a concise, self-contained decision report: **Objective → Status → Visuals → Results → Observations → Recommended next step.** End with optional GitHub links and the quick references.
+7. Follow this contract for `status`, `review`, `resume`, and after any new delegated job. Never claim results were retrieved or visually reviewed until they actually were.
+
+Check back within the active conversation when practical, but ChatGPT cannot monitor Actions or send follow-up messages after the conversation stops without an explicitly configured automation. GitHub can keep running independently.
+
 ## Links
 - Repo: https://github.com/dwoodard/geodefense-pwa
 - Actions: https://github.com/dwoodard/geodefense-pwa/actions
