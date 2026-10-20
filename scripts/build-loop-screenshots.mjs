@@ -68,6 +68,55 @@ try {
     console.log(device.name + ': ' + dimensions.width + 'x' + dimensions.height + ' | screenshot ' + size + ' bytes')
     await context.close()
   }
+
+  // Real game mechanics: IN/OUT placement, currency, 3-enemy activation limit,
+  // once-per-enemy, immune boss, cooldown, moving routes, and action bar.
+  const portalContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const portalPage = await portalContext.newPage()
+  const portalErrors = []
+  portalPage.on('pageerror', error => portalErrors.push(error.message))
+  await portalPage.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' })
+  const mechanics = await portalPage.evaluate(() => {
+    reset();screen='game';phase='wave';wave=8
+    const startMoney=money
+    const outOK=portalPlace(55,170)
+    const inOK=portalPlace(280,400)
+    const cost=startMoney-money
+    const previousOut={...portalPair.out},previousIn={...portalPair.in}
+    enemies = [1,2,3,4].map(id=>({id,d:portalPair.in.d+2,routeId:activeRouteId,hp:100,max:100,kind:'normal',speed:0,reward:0,wave:8}))
+    enemies.push({id:5,d:portalPair.in.d+2,routeId:activeRouteId,hp:100,max:100,kind:'boss',speed:0,reward:0,wave:8})
+    portalUpdate(0)
+    const transported=enemies.filter(e=>e.teleported).length
+    const bossStayed=enemies[4].d===portalPair.in.d+2
+    const limitRespected=!enemies[3].teleported
+    const cd=portalPair.cd
+    portalPair.cd=0
+    portalUpdate(0)
+    const once=enemies.slice(0,3).every(e=>e.teleported&&e.d===portalPair.out.d+7)
+    const postSecond=enemies[3].teleported
+    draw()
+    return{outOK,inOK,cost,transported,bossStayed,limitRespected,cd,once,postSecond,previousOut,previousIn}
+  })
+  if (!mechanics.outOK || !mechanics.inOK || mechanics.cost!==250 || mechanics.transported!==3 || !mechanics.bossStayed || !mechanics.limitRespected || mechanics.cd!==8 || !mechanics.once || !mechanics.postSecond) throw new Error('Teleport game balance regression: '+JSON.stringify(mechanics))
+  await portalPage.locator('canvas').screenshot({ path: join(output, 'teleport-pair.png') })
+  const bar=await portalPage.evaluate(() => {
+    powerMenu=false
+    const l=actionLayout(null)
+    onDown({preventDefault(){},clientX:X+(l.powers.x+30)*S,clientY:Y+712*S,pointerType:'mouse',pointerId:999})
+    const opened=powerMenu
+    powerMenu=false
+    portalSelected='in'
+    const selected=actionLayout(null).sell!=null
+    portalSell()
+    const sold=portalPair.out===null&&portalPair.in===null
+    const refunded=money===350-250+150
+    return{opened,selected,sold,refunded}
+  })
+  if (!bar.opened||!bar.selected||!bar.sold||!bar.refunded)throw new Error('Portal toolbar / Powers / sell regression: '+JSON.stringify(bar))
+  if (portalErrors.length) throw new Error('Teleport runtime errors: '+portalErrors.join('; '))
+  await portalContext.close()
+  console.log('PASS: one linked teleport pair, 3 target cap, boss immunity, once-only, cooldown, Powers button, sell/refund')
+
   // Exercise the exact sandboxed wrapper used on Pages, not only the root game.
   const files = new Map()
   for (const file of ['index.html', 'sw.js', 'icon.svg', 'manifest.webmanifest']) {
