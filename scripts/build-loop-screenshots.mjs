@@ -99,6 +99,46 @@ try {
   await breachContext.close()
   console.log('PASS: breach HUD responds to exit proximity, overrides selection, clears after danger')
 
+  // Desktop Shift acts as a temporary hold after a toolbar click or drag.
+  const shiftContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const shiftPage = await shiftContext.newPage()
+  const shiftErrors = []
+  shiftPage.on('pageerror', error => shiftErrors.push(error.message))
+  await shiftPage.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' })
+  const coords = await shiftPage.evaluate(() => {
+    reset(); screen = 'game'; money = 6000; phase = 'ready'
+    return { X, Y, S }
+  })
+  const pt = (x, y) => ({ x: coords.X + x * coords.S, y: coords.Y + y * coords.S })
+  const state = () => shiftPage.evaluate(() => ({ held: heldType(), temporary: shiftHeldType, count: towers.length, types: towers.map(t => t.type) }))
+  await shiftPage.keyboard.down('Shift')
+  await shiftPage.mouse.click(pt(112, 652).x, pt(112, 652).y)
+  if ((await state()).held !== 0) throw new Error('Shift-click failed to hold BLAST toolbar item')
+  await shiftPage.mouse.click(pt(230, 270).x, pt(230, 270).y)
+  if ((await state()).count !== 1) throw new Error('Shift-click held tool failed to place a tower')
+
+  await shiftPage.mouse.move(pt(188, 653).x, pt(188, 653).y)
+  await shiftPage.mouse.down()
+  await shiftPage.mouse.move(pt(320, 335).x, pt(320, 335).y, { steps: 8 })
+  await shiftPage.mouse.up()
+  const afterDrag = await state()
+  if (afterDrag.held !== 2 || afterDrag.count !== 2 || afterDrag.types[1] !== 2)
+    throw new Error('Shift-drag failed to place and keep MISSILE held: ' + JSON.stringify(afterDrag))
+  await shiftPage.mouse.click(pt(270, 465).x, pt(270, 465).y)
+  const afterExtra = await state()
+  if (afterExtra.count !== 3 || afterExtra.types[2] !== 2)
+    throw new Error('Shift-held MISSILE could not be placed repeatedly: ' + JSON.stringify(afterExtra))
+  await shiftPage.locator('canvas').screenshot({ path: join(output, 'shift-held-desktop.png') })
+  await shiftPage.keyboard.up('Shift')
+  const afterRelease = await state()
+  if (afterRelease.temporary !== null || afterRelease.held !== null)
+    throw new Error('Releasing Shift did not release temporary hold: ' + JSON.stringify(afterRelease))
+  await shiftPage.mouse.click(pt(205, 460).x, pt(205, 460).y)
+  if ((await state()).count !== 3) throw new Error('A tower was placed after Shift hold ended')
+  if (shiftErrors.length) throw new Error('Shift-held desktop runtime errors: ' + shiftErrors.join('; '))
+  await shiftContext.close()
+  console.log('PASS: desktop Shift-click, Shift-drag, multi-placement and release')
+
   // Real game mechanics: IN-first/OUT-second, currency, 5-enemy activation limit,
   // once-per-enemy, immune boss, cooldown, moving routes, and action bar.
   const portalContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
