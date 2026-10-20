@@ -63,7 +63,9 @@ jobs:
               draw();update(1/60);draw();
             `)
           exercise(document, store, store, win, {}, loc, () => {}, () => {}, () => {}, 390, 740, 1)
-          assert.ok(printed.includes('6 ENEMIES · 3 WAVES'), 'Wave count HUD regression')
+          assert.ok(printed.includes('6 LEFT'), 'Compact enemy HUD regression')
+          assert.ok(printed.includes('3 WAVES'), 'Overlapping wave HUD regression')
+          assert.ok(!printed.some(s => s.includes('RELEASE TO MERGE') || s.includes('PATH SHIFT IN')), 'Old battlefield overlay returned')
           assert.ok(!printed.some(s => s.includes('function activeWaveCount')), 'Function text leaked to HUD')
           console.log(`Validated game v${version}, service worker, and wave rendering`)
           NODE
