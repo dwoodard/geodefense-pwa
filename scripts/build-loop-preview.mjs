@@ -20,14 +20,7 @@ export function sandboxGameHtml(source) {
   }
   Object.defineProperty(window, 'localStorage', { configurable: true, value: store() })
   Object.defineProperty(window, 'sessionStorage', { configurable: true, value: store() })
-  // Some browsers throw merely by reading navigator.serviceWorker in an opaque origin.
-  // Always make it an inert API inside sandboxed test/previews.
-  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
-    getRegistrations: async () => [],
-    register: async () => ({ active: null, addEventListener() {}, update: async () => {} }),
-    addEventListener() {},
-    controller: null
-  } })
+
 })()
 </script>`
   if (!source.includes('<script>')) throw new Error('Game script not found')
