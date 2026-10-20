@@ -1,6 +1,7 @@
 import { mkdir, copyFile, writeFile, rm } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
+import { createSandboxPreview } from './build-loop-preview.mjs'
 
 const dist = 'dist'
 const files = ['index.html', 'sw.js', 'manifest.webmanifest', 'icon.svg']
@@ -33,18 +34,7 @@ for (const pr of candidates) {
       const content = execFileSync('git', ['show', 'FETCH_HEAD:' + file], { encoding: 'utf8' })
       contents.set(file, content)
     }
-    await mkdir(dest, { recursive: true })
-    for (const [file, content] of contents) await writeFile(join(dest, file === 'index.html' ? 'game.html' : file), content)
-    const wrapper = [
-      '<!doctype html><html lang="en"><head><meta charset="utf-8">',
-      '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
-      '<title>Build Loop Preview · PR #' + pr.number + '</title>',
-      '<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b17}iframe{width:100%;height:100%;border:0;display:block}</style>',
-      '</head><body>',
-      '<iframe title="Neon Defense experimental preview" src="./game.html" sandbox="allow-scripts allow-pointer-lock" allow="fullscreen"></iframe>',
-      '</body></html>'
-    ].join('')
-    await writeFile(join(dest, 'index.html'), wrapper)
+    await createSandboxPreview(dest, contents, pr.number)
     created++
     console.log('PR #' + pr.number + ' preview: /previews/pr-' + pr.number + '/')
   } catch (error) {

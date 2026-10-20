@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { readFile, mkdir, stat } from 'node:fs/promises'
 import { resolve, join, sep } from 'node:path'
 import { chromium } from 'playwright'
+import { createSandboxPreview } from './build-loop-preview.mjs'
 
 const root = process.cwd()
 const output = join(root, 'artifacts', 'build-loop')
@@ -67,6 +68,41 @@ try {
     console.log(device.name + ': ' + dimensions.width + 'x' + dimensions.height + ' | screenshot ' + size + ' bytes')
     await context.close()
   }
+  // Exercise the exact sandboxed wrapper used on Pages, not only the root game.
+  const files = new Map()
+  for (const file of ['index.html', 'sw.js', 'icon.svg', 'manifest.webmanifest']) {
+    files.set(file, await readFile(join(root, file), 'utf8'))
+  }
+  await createSandboxPreview(join(output, 'test-preview'), files, 0)
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const page = await context.newPage()
+  const frameErrors = []
+  page.on('pageerror', error => frameErrors.push(error.message))
+  await page.goto('http://127.0.0.1:' + port + '/artifacts/build-loop/test-preview/', { waitUntil: 'load' })
+  const gameFrame = page.frameLocator('iframe')
+  const gameCanvas = gameFrame.locator('canvas')
+  await gameCanvas.waitFor()
+  const probe = await gameCanvas.evaluate(() => {
+    sessionStorage.setItem('isolation-check', 'works')
+    localStorage.setItem('isolation-check', 'works')
+    screen = 'game'
+    phase = 'wave'
+    wave = 8
+    lives = 20
+    money = 350
+    enemies = []
+    towers = []
+    waveQueues = [6, 7, 8].map(w => ({ wave: w, routeId: 0, remaining: 2, clock: 100 }))
+    draw()
+    return { local: localStorage.getItem('isolation-check'), session: sessionStorage.getItem('isolation-check'), width: canvas.width, height: canvas.height }
+  })
+  if (probe.local !== 'works' || probe.session !== 'works' || !probe.width || !probe.height) throw new Error('Sandbox game state or storage failed')
+  const previewFile = join(output, 'sandbox-preview.png')
+  await gameCanvas.screenshot({ path: previewFile })
+  if ((await stat(previewFile)).size < 3000) throw new Error('Sandbox preview screenshot is unexpectedly small')
+  if (frameErrors.length) throw new Error('Sandbox game runtime errors: ' + frameErrors.join('; '))
+  await context.close()
+  console.log('PASS: sandbox preview loads real game, storage shim, gameplay and screenshot')
   console.log('PASS: browser gameplay rendered in portrait and landscape')
 } finally {
   if (browser) await browser.close()
