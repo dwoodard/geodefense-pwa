@@ -77,8 +77,10 @@ try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
   const page = await context.newPage()
   const frameErrors = []
-  page.on('pageerror', error => frameErrors.push(error.message))
+  page.on('pageerror', error => frameErrors.push(error.stack || error.message))
   await page.goto('http://127.0.0.1:' + port + '/artifacts/build-loop/test-preview/index.html', { waitUntil: 'load' })
+  const generated = await readFile(join(output, 'test-preview', 'game.html'), 'utf8')
+  console.log('Sandbox source: disabled guards=' + (generated.match(/if\(false\)/g) || []).length + ', live SW calls=' + (generated.match(/navigator\.serviceWorker/g) || []).length)
   const gameFrame = page.frameLocator('iframe')
   const gameCanvas = gameFrame.locator('canvas')
   await gameCanvas.waitFor()
