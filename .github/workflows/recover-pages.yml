@@ -1,0 +1,18 @@
+name: Recover stuck Pages deployment
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/recover-pages.yml'
+permissions:
+  contents: read
+  pages: write
+jobs:
+  release-stuck-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel blocked Pages deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/pages/deployments/744db826e1b92d44e3e5ed26e900295cfcfd1d7f/cancel"
