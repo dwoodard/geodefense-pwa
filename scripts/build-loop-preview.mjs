@@ -23,7 +23,10 @@ export function sandboxGameHtml(source) {
 })()
 </script>`
   if (!source.includes('<script>')) throw new Error('Game script not found')
-  return source.replace('<script>', storageShim + '<script>')
+  // Service workers are forbidden to sandboxed opaque origins; touching
+  // navigator.serviceWorker itself throws, so skip registration in previews.
+  const safeSource = source.replace(/'serviceWorker'\\s*in\\s*navigator/g, 'false')
+  return safeSource.replace('<script>', storageShim + '<script>')
 }
 
 export async function createSandboxPreview(destination, fileContents, number) {
