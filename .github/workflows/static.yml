@@ -31,6 +31,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Validate PWA and wave HUD
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs')
+          const assert = require('node:assert/strict')
+          const html = fs.readFileSync('index.html', 'utf8')
+          const worker = fs.readFileSync('sw.js', 'utf8')
+          const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1]
+          assert.ok(script, 'Game script is missing')
+          new Function(script)
+          new Function(worker)
+          const version = html.match(/const APP_VERSION=(\d+)/)?.[1]
+          assert.ok(version, 'Game version missing')
+          assert.ok(worker.includes('v' + version + '-'), 'Service-worker version does not match game')
+          const printed = []
+          const ctx = new Proxy({
+            fillText: s => printed.push(String(s)),
+            measureText: s => ({ width: String(s).length * 7 })
+          }, { get: (o, k) => k in o ? o[k] : () => {} })
+          const canvas = { getContext: () => ctx, addEventListener: () => {}, width: 390, height: 740, style: {} }
+          const document = { querySelector: () => canvas, addEventListener: () => {}, hidden: false }
+          const store = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+          const win = { visualViewport: null, addEventListener: () => {} }
+          const loc = { pathname: '/geodefense-pwa/', reload: () => {} }
+          const exercise = new Function('document', 'localStorage', 'sessionStorage', 'window', 'navigator', 'location',
+            'addEventListener', 'requestAnimationFrame', 'setInterval', 'innerWidth', 'innerHeight', 'devicePixelRatio',
+            script + `
+              screen='game';phase='wave';wave=8;lives=20;money=350;enemies=[];towers=[];
+              waveQueues=[6,7,8].map(w=>({wave:w,routeId:0,remaining:2,clock:100}));
+              draw();update(1/60);draw();
+            `)
+          exercise(document, store, store, win, {}, loc, () => {}, () => {}, () => {}, 390, 740, 1)
+          assert.ok(printed.includes('6 ENEMIES · 3 WAVES'), 'Wave count HUD regression')
+          assert.ok(!printed.some(s => s.includes('function activeWaveCount')), 'Function text leaked to HUD')
+          console.log(`Validated game v${version}, service worker, and wave rendering`)
+          NODE
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
@@ -41,3 +77,19 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+      - name: Verify published game version
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          EXPECTED=$(grep -oE 'const APP_VERSION=[0-9]+' index.html | head -n 1)
+          for i in $(seq 1 24); do
+            PAGE=$(curl --location --fail --silent --show-error --max-time 15 -H 'Cache-Control: no-cache' "${PAGE_URL}index.html?verify=${GITHUB_SHA}" || true)
+            if [[ "$PAGE" == *"$EXPECTED"* ]]; then
+              echo "Verified deployed $EXPECTED at ${PAGE_URL}"
+              exit 0
+            fi
+            echo "Waiting for $EXPECTED on published site (attempt $i/24)"
+            sleep 5
+          done
+          echo "Published site did not serve $EXPECTED"
+          exit 1
