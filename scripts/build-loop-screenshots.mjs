@@ -74,7 +74,7 @@ try {
     files.set(file, await readFile(join(root, file), 'utf8'))
   }
   await createSandboxPreview(join(output, 'test-preview'), files, 0)
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
   const page = await context.newPage()
   const frameErrors = []
   page.on('pageerror', error => frameErrors.push(error.stack || error.message))
