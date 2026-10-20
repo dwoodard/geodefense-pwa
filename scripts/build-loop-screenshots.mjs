@@ -78,7 +78,7 @@ try {
   const page = await context.newPage()
   const frameErrors = []
   page.on('pageerror', error => frameErrors.push(error.message))
-  await page.goto('http://127.0.0.1:' + port + '/artifacts/build-loop/test-preview/', { waitUntil: 'load' })
+  await page.goto('http://127.0.0.1:' + port + '/artifacts/build-loop/test-preview/index.html', { waitUntil: 'load' })
   const gameFrame = page.frameLocator('iframe')
   const gameCanvas = gameFrame.locator('canvas')
   await gameCanvas.waitFor()
