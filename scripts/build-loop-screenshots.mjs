@@ -69,6 +69,36 @@ try {
     await context.close()
   }
 
+  // Breach radar: near-exit enemy overrides selected tower HUD and clears afterward.
+  const breachContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const breachPage = await breachContext.newPage()
+  const breachErrors = []
+  breachPage.on('pageerror', error => breachErrors.push(error.message))
+  await breachPage.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' })
+  const breach = await breachPage.evaluate(() => {
+    reset(); screen = 'game'; phase = 'wave'; wave = 8
+    powerNoticeTime = 0; clutchNotice = 0; towers = []; selected = -1; waveQueues = []
+    const enemy = { id: 1, d: length * .86, routeId: activeRouteId, hp: 100, max: 100, speed: 0, wave: 8, kind: 'normal', reward: 8 }
+    enemies = [enemy]
+    const imminent = hudState()
+    towers = [{ x: 180, y: 240, type: 1, level: 1, range: 80, cd: 0 }]
+    selected = 0
+    const selectedTower = hudState()
+    selected = -1
+    enemy.d = length * .45
+    const earlier = hudState()
+    enemies = []
+    const cleared = hudState()
+    return { imminent, selectedTower, earlier, cleared }
+  })
+  if (breach.imminent.a !== 'BREACH' || !breach.imminent.b.startsWith('EXIT ') ||
+      breach.selectedTower.a !== 'BREACH' || breach.earlier.a === 'BREACH' || breach.cleared.a === 'BREACH') {
+    throw new Error('Breach warning HUD regression: ' + JSON.stringify(breach))
+  }
+  if (breachErrors.length) throw new Error('Breach warning runtime errors: ' + breachErrors.join('; '))
+  await breachContext.close()
+  console.log('PASS: breach HUD responds to exit proximity, overrides selection, clears after danger')
+
   // Real game mechanics: IN-first/OUT-second, currency, 5-enemy activation limit,
   // once-per-enemy, immune boss, cooldown, moving routes, and action bar.
   const portalContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
