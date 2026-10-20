@@ -8,10 +8,15 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+  # A successful PR preview check requests a new Pages bundle: main + sandboxed previews.
+  workflow_run:
+    workflows: ["Build Loop - Preview checks"]
+    types: [completed]
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
+  pull-requests: read
   pages: write
   id-token: write
 
@@ -24,13 +29,16 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout trusted main branch
         uses: actions/checkout@v4
+        with:
+          ref: main
       - name: Validate PWA and wave HUD
         run: |
           node <<'NODE'
@@ -69,13 +77,17 @@ jobs:
           assert.ok(!printed.some(s => s.includes('function activeWaveCount')), 'Function text leaked to HUD')
           console.log(`Validated game v${version}, service worker, and wave rendering`)
           NODE
+      - name: Assemble stable game and PR previews
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/build-loop-pages.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # The root game always comes from main; previews live under /previews/pr-N/.
+          path: 'dist'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
