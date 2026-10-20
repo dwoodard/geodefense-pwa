@@ -95,14 +95,16 @@ jobs:
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
-          EXPECTED=$(grep -oE 'const APP_VERSION=[0-9]+' index.html | head -n 1)
+          EXPECTED=$(grep -oE 'const APP_VERSION=[0-9]+,APP_REVISION=[0-9]+' index.html | head -n 1)
+          if [[ -z "$EXPECTED" ]]; then echo "Full game version missing"; exit 1; fi
           for i in $(seq 1 24); do
             PAGE=$(curl --location --fail --silent --show-error --max-time 15 -H 'Cache-Control: no-cache' "${PAGE_URL}index.html?verify=${GITHUB_SHA}" || true)
-            if [[ "$PAGE" == *"$EXPECTED"* ]]; then
+            PUBLISHED=$(printf '%s' "$PAGE" | grep -oE 'const APP_VERSION=[0-9]+,APP_REVISION=[0-9]+' | head -n 1)
+            if [[ "$PUBLISHED" == "$EXPECTED" ]]; then
               echo "Verified deployed $EXPECTED at ${PAGE_URL}"
               exit 0
             fi
-            echo "Waiting for $EXPECTED on published site (attempt $i/24)"
+            echo "Waiting for $EXPECTED; published: ${PUBLISHED:-missing} (attempt $i/24)"
             sleep 5
           done
           echo "Published site did not serve $EXPECTED"
