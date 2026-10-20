@@ -68,6 +68,78 @@ try {
     console.log(device.name + ': ' + dimensions.width + 'x' + dimensions.height + ' | screenshot ' + size + ' bytes')
     await context.close()
   }
+
+  // Real game mechanics: IN-first/OUT-second, currency, 5-enemy activation limit,
+  // once-per-enemy, immune boss, cooldown, moving routes, and action bar.
+  const portalContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const portalPage = await portalContext.newPage()
+  const portalErrors = []
+  portalPage.on('pageerror', error => portalErrors.push(error.message))
+  await portalPage.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' })
+  const mechanics = await portalPage.evaluate(() => {
+    reset(); screen='game';phase='wave';wave=8
+    const first=portalPlace(280,400)
+    const firstWasIn=!!portalPair.in&&!portalPair.out&&portalNext()==='out'
+    const second=portalPlace(55,170)
+    const total=18
+    enemies=Array.from({length:total},(_,i)=>({id:i+1,d:portalPair.in.d+2,routeId:activeRouteId,hp:100,max:100,kind:i===total-1?'boss':'normal',speed:0,reward:0,wave:8}))
+    portalUpdate(0)
+    const teleported=enemies.filter(e=>e.teleported).length
+    const bossStayed=enemies[total-1].d===portalPair.in.d+2
+    const noCooldown=portalPair.cd===0
+    for(const e of enemies.slice(0,total-1))e.d=portalPair.in.d+2
+    portalUpdate(0)
+    const noRepeat=enemies.slice(0,total-1).every(e=>e.d===portalPair.in.d+2)
+    const written=[]
+    const old=ctx.fillText
+    ctx.fillText=function(label,...args){written.push(String(label));return old.call(this,label,...args)}
+    draw()
+    ctx.fillText=old
+    return{first,second,firstWasIn,teleported,bossStayed,noCooldown,noRepeat,labelsHidden:!written.includes('IN')&&!written.includes('OUT'),money}
+  })
+  if(!mechanics.first||!mechanics.second||!mechanics.firstWasIn||mechanics.teleported!==17||!mechanics.bossStayed||!mechanics.noCooldown||!mechanics.noRepeat||!mechanics.labelsHidden||mechanics.money!==100)throw new Error('Unlimited teleport regression: '+JSON.stringify(mechanics))
+  await portalPage.locator('canvas').screenshot({ path: join(output, 'teleport-pair.png') })
+  const bar=await portalPage.evaluate(() => {
+    powerMenu=false
+    const l=actionLayout(null)
+    onDown({preventDefault(){},clientX:X+(l.powers.x+30)*S,clientY:Y+712*S,pointerType:'mouse',pointerId:999})
+    const opened=powerMenu
+    powerMenu=false
+    portalSelected='in'
+    const selected=actionLayout(null).sell!=null
+    portalSell()
+    const sold=portalPair.out===null&&portalPair.in===null
+    const refunded=money===350-250+150
+    return{opened,selected,sold,refunded}
+  })
+  if (!bar.opened||!bar.selected||!bar.sold||!bar.refunded)throw new Error('Portal toolbar / Powers / sell regression: '+JSON.stringify(bar))
+  if (portalErrors.length) throw new Error('Teleport runtime errors: '+portalErrors.join('; '))
+  await portalContext.close()
+  console.log('PASS: IN first, OUT second, unlimited simultaneous teleports, no cooldown, once-only per enemy, boss immunity, Powers button')
+
+  // Power-up grid: tap a tile, adjust fixed units, buy without changing the original effect.
+  const gridContext=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'})
+  const gridPage=await gridContext.newPage()
+  const gridErrors=[]
+  gridPage.on('pageerror',e=>gridErrors.push(e.message))
+  await gridPage.goto('http://127.0.0.1:'+port+'/',{waitUntil:'load'})
+  const gridResult=await gridPage.evaluate(()=>{
+    reset();screen='game';money=2500;powerMenu=true;draw()
+    const tap=(x,y)=>onDown({preventDefault(){},pointerId:500,pointerType:'mouse',clientX:X+x*S,clientY:Y+y*S})
+    tap(60,265);const first=powerSelection.laser
+    tap(60,265);const second=powerSelection.laser
+    tap(253,527);const minus=powerSelection.laser
+    tap(345,527);const plus=powerSelection.laser
+    const cost=powerTotal()
+    tap(285,583)
+    return{first,second,minus,plus,cost,owned:powerTimers.laser,money,closed:!powerMenu}
+  })
+  if(gridResult.first!==5||gridResult.second!==10||gridResult.minus!==5||gridResult.plus!==10||gridResult.cost!==200||gridResult.owned!==10||gridResult.money!==2300||!gridResult.closed)throw new Error('Grid control/purchase regression: '+JSON.stringify(gridResult))
+  if(gridErrors.length)throw new Error('Grid runtime errors: '+gridErrors.join('; '))
+  await gridPage.locator('canvas').screenshot({path:join(output,'power-grid.png')})
+  await gridContext.close()
+  console.log('PASS: four-column power-up grid, tap to add, +/- adjust, fixed units, purchase')
+
   // Exercise the exact sandboxed wrapper used on Pages, not only the root game.
   const files = new Map()
   for (const file of ['index.html', 'sw.js', 'icon.svg', 'manifest.webmanifest']) {
