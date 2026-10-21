@@ -135,7 +135,7 @@ try {
     }
     for (const type of [0, 2, 3]) {
       seed(type); placement = { id: 140 + type, type, dragging: true }
-      onUp(evt(140 + type, 40, 498))
+      onUp(evt(140 + type, type === 3 ? 220 : 40, type === 3 ? 368 : 498))
       checks.push([N[type] + ' repeated placement', towers.length === 2])
     }
     const laser = seed(1, 4)
