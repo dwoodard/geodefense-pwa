@@ -99,6 +99,64 @@ try {
   await breachContext.close()
   console.log('PASS: breach HUD responds to exit proximity, overrides selection, clears after danger')
 
+
+  // Check shared upgrades through the same pointer-up path as mobile and desktop.
+  const towerCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const towerPage = await towerCtx.newPage()
+  const towerErrors = []
+  towerPage.on('pageerror', e => towerErrors.push(e.message))
+  await towerPage.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' })
+  const towerChecks = await towerPage.evaluate(() => {
+    const checks = []
+    const evt = (id, x, y) => ({ pointerId: id, pointerType: 'touch', preventDefault() {}, clientX: X + x * S, clientY: Y + y * S })
+    const seed = (type, level = 2, cash = 20000) => {
+      reset(); screen = 'game'; phase = 'ready'; money = cash
+      const t = { type, x: 180, y: 240, level, range: 80, cd: 0, active: 0 }
+      towers = [t]
+      return t
+    }
+    for (const type of [0, 1, 2, 3]) {
+      let t = seed(type), fee = towerUpgradeCost(t), before = money
+      placement = { id: 100 + type, type, dragging: true }
+      onUp(evt(100 + type, t.x, t.y + 48))
+      checks.push([N[type] + ' drag upgrade', t.level === 3 && money === before - fee && t.range === 87 && towers.length === 1])
+      t = seed(type, 5); before = money
+      placement = { id: 110 + type, type, dragging: true }
+      onUp(evt(110 + type, t.x, t.y + 48))
+      checks.push([N[type] + ' level cap', t.level === 5 && money === before])
+      t = seed(type, 3, 1)
+      placement = { id: 120 + type, type, dragging: true }
+      onUp(evt(120 + type, t.x, t.y + 48))
+      checks.push([N[type] + ' affordability', t.level === 3 && money === 1])
+      t = seed(type); fee = towerUpgradeCost(t); before = money
+      rapidTap = { id: 130 + type, holdId: -1, type }
+      onUp(evt(130 + type, t.x, t.y + 48))
+      checks.push([N[type] + ' held tool upgrade', t.level === 3 && money === before - fee])
+    }
+    for (const type of [0, 2, 3]) {
+      seed(type); placement = { id: 140 + type, type, dragging: true }
+      onUp(evt(140 + type, type === 3 ? 220 : 40, type === 3 ? 368 : 498))
+      checks.push([N[type] + ' repeated placement', towers.length === 2])
+    }
+    const laser = seed(1, 4)
+    placement = { id: 150, type: 1, dragging: true }; onUp(evt(150, 40, 498))
+    checks.push(['Laser stays single until L5', towers.length === 1])
+    laser.level = 5
+    placement = { id: 151, type: 1, dragging: true }; onUp(evt(151, 40, 498))
+    checks.push(['Laser unlocks after L5', towers.length === 2])
+    const first = seed(0, 1); first.x = 40; first.y = 450
+    const other = { ...first, x: 70, y: 520 }; towers.push(other)
+    towerDrag = { id: 160, t: first, startX: 40, startY: 450 }
+    onUp(evt(160, other.x, other.y + 48))
+    checks.push(['Tower-to-tower merge preserved', towers.length === 1 && other.level === 2])
+    checks.push(['Portal upgrades excluded', upgradeTower({ type: 4, level: 1 }) === false])
+    return checks
+  })
+  for (const [name, ok] of towerChecks) if (!ok) throw new Error('Tower upgrade regression: ' + name)
+  if (towerErrors.length) throw new Error('Tower upgrade browser errors: ' + towerErrors.join('; '))
+  await towerCtx.close()
+  console.log('PASS: ' + towerChecks.length + ' tower upgrade and merge cases')
+
   // Desktop Shift acts as a temporary hold after a toolbar click or drag.
   const shiftContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
   const shiftPage = await shiftContext.newPage()
