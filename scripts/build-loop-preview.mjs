@@ -30,7 +30,7 @@ export function sandboxGameHtml(source) {
     .replace(/'serviceWorker'\s*in\s*navigator/g, 'false')
     .replace(/navigator\.serviceWorker/g, 'undefined')
     .replace(/menuButton\('UPDATE GAME',551,'#49dfff'\)/g, "menuButton('PREVIEW BUILD',551,'#49dfff')")
-    .replace(/updateStatus='UPDATE FAILED — RETRY'/g, "updateStatus='PREVIEW: REOPEN LINK TO REFRESH'")
+    .replace(/async function forceUpdate\(\)\{/g, "async function forceUpdate(){updateStatus='PREVIEW: REOPEN LINK TO REFRESH';return;")
   return safeSource.replace('<script>', storageShim + '<script>')
 }
 
