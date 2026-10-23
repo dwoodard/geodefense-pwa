@@ -47,11 +47,11 @@ jobs:
           path: artifacts/build-loop/*.png
           if-no-files-found: warn
           retention-days: 14
-      - name: Add preview references to Actions summary
+      - name: Add independent test references to Actions summary
         if: always()
         run: |
           echo "## Build Loop · PR #${{ github.event.pull_request.number }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Screenshots: download this run's screenshot artifact" >> "$GITHUB_STEP_SUMMARY"
-          echo "- After the preview infrastructure is on main, successful runs publish: https://dwoodard.github.io/geodefense-pwa/previews/pr-${{ github.event.pull_request.number }}/" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Playable preview deploys independently of this workflow: https://dwoodard.github.io/geodefense-pwa/previews/pr-${{ github.event.pull_request.number }}/" >> "$GITHUB_STEP_SUMMARY"
           echo "- Production remains the main branch: https://dwoodard.github.io/geodefense-pwa/" >> "$GITHUB_STEP_SUMMARY"
