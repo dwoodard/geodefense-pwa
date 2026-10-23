@@ -123,7 +123,7 @@ try {
       t = seed(type, 5); before = money
       placement = { id: 110 + type, type, dragging: true }
       onUp(evt(110 + type, t.x, t.y + 48))
-      checks.push([N[type] + ' level cap', t.level === 5 && money === before])
+      checks.push([N[type] + ' mastery at level cap', t.level === 5 && (t.mastery||0) === 1 && money === before - masteryCost(t)])
       t = seed(type, 3, 1)
       placement = { id: 120 + type, type, dragging: true }
       onUp(evt(120 + type, t.x, t.y + 48))
