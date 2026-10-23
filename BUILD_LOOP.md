@@ -3,6 +3,16 @@
 ## Purpose
 ChatGPT is the control surface; GitHub holds durable state; GitHub Actions runs remote checks, browser screenshots, and Pages deployment. No Mac, local runner, or ZIP is needed. **The player experience is the primary deliverable: a prototype is not complete until the user can open and play it, ideally directly from this chat via a prominent link or embedded preview when supported.**
 
+## Default operating mode (required)
+
+Treat every Neon Defense development request as an implicit `/build-loop` invocation, even if the user never types the command. At the start of each task, read this file and inspect relevant recent commits, open PRs, and current deployment state. Resume the existing work instead of creating redundant branches.
+
+Optimize for the shortest path from user request to a playable, verified prototype. Implement on a preview branch, trigger deployment immediately, and prioritize giving the user the direct playable URL above all development-process reporting. Do not make the user navigate GitHub, Actions, PRs, or screenshots to test the game.
+
+**Response order:** (1) **Play:** verified direct preview link; (2) **Changed:** one or two short sentences; (3) **Try:** specific gameplay behavior to test. Mention PRs, CI, logs, or deployment only on request or when a blocker prevents play. If the preview is not verified, say so rather than offering an unverified link as playable.
+
+Run browser screenshots and deeper tests independently; never delay a deploy to wait for Playwright. Preserve production until the user explicitly authorizes a merge. Use existing stable PR preview URLs for iterative changes whenever practical.
+
 ## Current state
 - Production: `main` at https://dwoodard.github.io/geodefense-pwa/
 - Live game remains sourced exclusively from `main`.
