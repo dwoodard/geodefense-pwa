@@ -9,7 +9,9 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   # Publish PR previews immediately; do not wait for Playwright screenshots.
-  pull_request:
+  # Run from trusted main so Pages receives a deployment token with write access.
+  # The job checks out main and copies PR files as untrusted static data only.
+  pull_request_target:
     types: [opened, synchronize, reopened, closed]
     branches: ["main"]
 
@@ -29,7 +31,7 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'build-loop/'))
+    if: github.event_name != 'pull_request_target' || (github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'build-loop/'))
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -110,7 +112,7 @@ jobs:
           echo "Published site did not serve $EXPECTED"
           exit 1
       - name: Verify PR preview is playable and current
-        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        if: github.event_name == 'pull_request_target' && github.event.action != 'closed'
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
