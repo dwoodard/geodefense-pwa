@@ -123,10 +123,10 @@ jobs:
           PR_VERSION=$(git show FETCH_HEAD:index.html | grep -oE 'const APP_VERSION=[0-9]+,APP_REVISION=[0-9]+' | head -n 1)
           if [[ -z "$PR_VERSION" ]]; then echo "PR game version missing"; exit 1; fi
           for i in $(seq 1 24); do
-            PAGE=$(curl --location --fail --silent --show-error --max-time 15 -H 'Cache-Control: no-cache' "${PAGE_URL}previews/pr-${PR_NUMBER}/?verify=${PR_HEAD}" || true)
+            PAGE=$(curl --location --fail --silent --show-error --max-time 15 -H 'Cache-Control: no-cache' "${PAGE_URL}previews/pr-${PR_NUMBER}/game.html?verify=${PR_HEAD}" || true)
             PUBLISHED=$(printf '%s' "$PAGE" | grep -oE 'const APP_VERSION=[0-9]+,APP_REVISION=[0-9]+' | head -n 1)
-            if [[ "$PUBLISHED" == "$PR_VERSION" ]]; then
-              echo "Verified playable preview: ${PAGE_URL}previews/pr-${PR_NUMBER}/ ($PR_VERSION)"
+            if [[ "$PUBLISHED" == "$PR_VERSION" ]]; then\n              WRAPPER=$(curl --location --fail --silent --show-error --max-time 15 "${PAGE_URL}previews/pr-${PR_NUMBER}/?verify=${PR_HEAD}" || true)\n              if [[ "$WRAPPER" != *"<iframe"* ]]; then echo "Preview wrapper missing"; sleep 5; continue; fi
+              echo "Verified preview game asset: ${PAGE_URL}previews/pr-${PR_NUMBER}/game.html ($PR_VERSION)"
               echo "## Play preview" >> "$GITHUB_STEP_SUMMARY"
               echo "${PAGE_URL}previews/pr-${PR_NUMBER}/" >> "$GITHUB_STEP_SUMMARY"
               exit 0
