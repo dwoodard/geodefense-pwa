@@ -4,10 +4,9 @@
 ChatGPT is the control surface; GitHub holds durable state; GitHub Actions runs remote checks, browser screenshots, and Pages deployment. No Mac, local runner, or ZIP is needed. **The player experience is the primary deliverable: a prototype is not complete until the user can open and play it, ideally directly from this chat via a prominent link or embedded preview when supported.**
 
 ## Current state
-- Production: `main`, game v129 at https://dwoodard.github.io/geodefense-pwa/
-- Preview foundation: this branch / pull request
+- Production: `main` at https://dwoodard.github.io/geodefense-pwa/
 - Live game remains sourced exclusively from `main`.
-- PR branches named `build-loop/*` become eligible for isolated previews after this infrastructure lands on `main`.
+- PR branches named `build-loop/*` receive isolated previews on every push.
 
 ## Quick references
 | Say | Action |
@@ -24,11 +23,15 @@ ChatGPT is the control surface; GitHub holds durable state; GitHub Actions runs 
 ## Remote workflow
 1. ChatGPT reads the project and last 10 commits.
 2. Work is split into independent branches/PRs only where doing so is useful.
-3. A PR `build-loop/... ` runs `Build Loop - Preview checks`: real Chromium screenshots at portrait (390x844) and landscape (844x390), plus runtime checks.
-4. Successful checks trigger the production Pages pipeline *after the infrastructure has been merged into main*. Pages builds from `main` and places open build-loop PRs under `/previews/pr-N/`; the production index remains `main`.
+3. Every `build-loop/*` PR push immediately triggers the Pages deploy workflow. It checks trusted main, validates the bundled game and builds isolated PR previews; Playwright is never a prerequisite to deployment.
+4. Independently, `Build Loop - Preview checks` runs Chromium screenshots at portrait (390x844) and landscape (844x390), plus runtime checks. A failed or slow browser test does not block the playable preview. Pages builds from `main` and places open build-loop PRs under `/previews/pr-N/`; the production index remains `main`.
 5. A preview is embedded in a sandboxed iframe (no same-origin privilege) to separate it from the installed PWA and saved game. A browser preview is for evaluating play, not an installable PWA.
 6. ChatGPT verifies and brings back the **direct playable preview first**, then inline screenshots, CI results, and short decision points. The game should be one click away without requiring a trip through GitHub or the Actions tab.
 7. Merge is an explicit `ship` step. Closing a PR removes its preview on the next successful Pages deployment.
+
+## Fast-preview rule (required)
+
+On every gameplay PR push: publish the playable preview first, run Playwright/screenshots independently, verify the deployed PR version before sharing its URL, and do not wait for CI to finish. If deployment fails, report the failure; never invent a working link. Only merge gameplay changes after explicit approval. The preview URL is stable across pushes: `/previews/pr-N/`.
 
 ## Playable-first acceptance rule (required)
 
@@ -69,6 +72,5 @@ Check back within the active conversation when practical, but ChatGPT cannot mon
 ## Safety / limitations
 - PR code is not deployed as the root game; `main` remains the only production source.
 - GitHub Actions runs remotely, and can finish after the conversation ends. ChatGPT does not keep polling or send new chat messages by itself.
-- First infrastructure PR needs to land on `main` before automatic playable preview URLs can be generated.
 - The first release focuses on screenshot/browser validation and preview hosting. Autonomous cloud coding agents are a separate optional stage; they require their own configured credentials/permissions.
 - If Pages or Actions fail, inspect the failed run rather than claiming deployment succeeded.
