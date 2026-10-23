@@ -121,9 +121,10 @@ try {
       onUp(evt(100 + type, t.x, t.y + 48))
       checks.push([N[type] + ' drag upgrade', t.level === 3 && money === before - fee && t.range === 87 && towers.length === 1])
       t = seed(type, 5); before = money
+      const masteryFee = towerUpgradeCost(t)
       placement = { id: 110 + type, type, dragging: true }
       onUp(evt(110 + type, t.x, t.y + 48))
-      checks.push([N[type] + ' level cap', t.level === 5 && money === before])
+      checks.push([N[type] + ' mastery after level cap', t.level === 5 && t.mastery === 1 && money === before - masteryFee])
       t = seed(type, 3, 1)
       placement = { id: 120 + type, type, dragging: true }
       onUp(evt(120 + type, t.x, t.y + 48))
